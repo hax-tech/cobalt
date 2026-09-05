@@ -8,6 +8,16 @@ export interface CobaltProviderConfig {
   timeoutMs?: number;
 }
 
+function sanitizeCobaltBaseUrl(rawUrl?: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.trim() === '') {
+    return 'https://api.cobalt.tools';
+  }
+  return rawUrl
+    .trim()
+    .replace(/\/api\/json\/?$/i, '')
+    .replace(/\/+$/, '');
+}
+
 export class CobaltProvider extends BaseProvider {
   public readonly name = 'cobalt';
   private readonly baseUrl: string;
@@ -16,7 +26,8 @@ export class CobaltProvider extends BaseProvider {
 
   constructor(options: CobaltProviderConfig = {}) {
     super();
-    this.baseUrl = (options.baseUrl || process.env.COBALT_URL || 'https://api.cobalt.tools').replace(/\/+$/, '');
+    const rawUrl = options.baseUrl || process.env.COBALT_URL || process.env.COBALT_API_URL || 'https://api.cobalt.tools';
+    this.baseUrl = sanitizeCobaltBaseUrl(rawUrl);
     this.apiKey = options.apiKey !== undefined ? options.apiKey : process.env.COBALT_API_KEY;
     this.timeoutMs = options.timeoutMs || 15000;
   }
@@ -36,9 +47,9 @@ export class CobaltProvider extends BaseProvider {
 
   /**
    * Health-check for Cobalt using the current API contract.
-   * Cobalt serves instance info via GET / with Accept: application/json.
-   * Probing GET / tests reachability without consuming media download rate-limits
-   * and prevents 400 Bad Request responses caused by empty POST bodies.
+   * MUST use: GET `${baseUrl}/`
+   * MUST NOT use: POST `/`, POST `/api/json`, or POST with `{}` or empty body.
+   * MUST use header: Accept: application/json
    */
   async checkHealth(): Promise<ProviderHealthStatus> {
     const controller = new AbortController();
@@ -52,6 +63,7 @@ export class CobaltProvider extends BaseProvider {
         headers['Authorization'] = `Api-Key ${this.apiKey.trim()}`;
       }
 
+      // Strictly probe GET / without a request body
       const response = await fetch(`${this.baseUrl}/`, {
         method: 'GET',
         headers,
@@ -65,17 +77,21 @@ export class CobaltProvider extends BaseProvider {
         const version = data?.cobalt?.version ? ` (v${data.cobalt.version})` : '';
         return {
           available: true,
+          isAvailable: true,
           statusMessage: `Cobalt API is reachable${version}`,
           version: data?.cobalt?.version,
         };
       }
 
       // If status is 400 or other error, extract diagnostic information
-      const errorJson = await response.json().catch(() => null) as { error?: { code?: string } } | null;
-      const diagnostic = errorJson?.error?.code ? ` [${errorJson.error.code}]` : '';
+      const errorJson = await response.json().catch(() => null) as { error?: { code?: string }; text?: string } | null;
+      const diagnostic = errorJson?.error?.code
+        ? ` [${errorJson.error.code}]`
+        : (errorJson?.text ? ` [${errorJson.text}]` : '');
 
       return {
         available: false,
+        isAvailable: false,
         statusMessage: `Cobalt API returned status ${response.status}${diagnostic}`,
       };
     } catch (err: unknown) {
@@ -84,9 +100,17 @@ export class CobaltProvider extends BaseProvider {
       const msg = isAbort ? 'Request timed out after 5000ms' : (err instanceof Error ? err.message : String(err));
       return {
         available: false,
+        isAvailable: false,
         statusMessage: `Cobalt API is unreachable: ${msg}`,
       };
     }
+  }
+
+  /**
+   * Compatibility alias for checkHealth.
+   */
+  async healthCheck(): Promise<ProviderHealthStatus> {
+    return this.checkHealth();
   }
 
   /**

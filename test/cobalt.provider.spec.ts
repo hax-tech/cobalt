@@ -208,10 +208,92 @@ describe('CobaltProvider', () => {
 
     const health = await provider.checkHealth();
     expect(health.available).toBe(true);
+    expect(health.isAvailable).toBe(true);
     expect(health.statusMessage).toBe('Cobalt API is reachable (v11.7.0)');
     expect(fetchMock).toHaveBeenCalledWith('https://api.cobalt.tools/', expect.objectContaining({
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     }));
+  });
+
+  it('proves that Cobalt availability strictly calls GET / and NOT POST /', async () => {
+    const provider = new CobaltProvider({ baseUrl: 'https://api.cobalt.tools' });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        cobalt: {
+          version: '11.7.1',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const health = await provider.checkHealth();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [calledUrl, callInit] = fetchMock.mock.calls[0];
+
+    // Verify method is GET and NOT POST
+    expect(callInit?.method).toBe('GET');
+    expect(callInit?.method).not.toBe('POST');
+
+    // Verify path is root / and does not call /api/json
+    expect(calledUrl).toBe('https://api.cobalt.tools/');
+    expect(calledUrl).not.toContain('/api/json');
+
+    // Verify no request body is sent (no {}, no empty body)
+    expect(callInit?.body).toBeUndefined();
+
+    // Verify Accept: application/json header is sent
+    expect(callInit?.headers).toEqual(expect.objectContaining({
+      'Accept': 'application/json',
+    }));
+
+    // Verify both available and isAvailable flags are true
+    expect(health.available).toBe(true);
+    expect(health.isAvailable).toBe(true);
+  });
+
+  it('proves that Cobalt availability strips legacy /api/json from baseUrl, COBALT_URL, or COBALT_API_URL', async () => {
+    // Test with legacy /api/json in URL
+    const providerWithLegacyUrl = new CobaltProvider({
+      baseUrl: 'https://api.cobalt.tools/api/json/',
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        cobalt: { version: '11.7.1' },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await providerWithLegacyUrl.checkHealth();
+
+    const [calledUrl, callInit] = fetchMock.mock.calls[0];
+    expect(calledUrl).toBe('https://api.cobalt.tools/');
+    expect(calledUrl).not.toContain('/api/json');
+    expect(callInit?.method).toBe('GET');
+    expect(callInit?.method).not.toBe('POST');
+  });
+
+  it('proves healthCheck() alias produces identical result to checkHealth()', async () => {
+    const provider = new CobaltProvider({ baseUrl: 'https://api.cobalt.tools' });
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        cobalt: { version: '11.7.1' },
+      }),
+    }));
+
+    const resultFromAlias = await provider.healthCheck();
+    expect(resultFromAlias.available).toBe(true);
+    expect(resultFromAlias.isAvailable).toBe(true);
+    expect(resultFromAlias.version).toBe('11.7.1');
   });
 });

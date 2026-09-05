@@ -25,10 +25,12 @@ export interface AppConfig {
 }
 
 export const config: AppConfig = {
-  port: 3000,
+  port: Number(process.env.PORT || 3000),
   nodeEnv: process.env.NODE_ENV || 'development',
   cobalt: {
-    url: (process.env.COBALT_URL || 'https://api.cobalt.tools').replace(/\/+$/, ''),
+    url: (process.env.COBALT_URL || process.env.COBALT_API_URL || 'https://api.cobalt.tools')
+      .replace(/\/api\/json\/?$/i, '')
+      .replace(/\/+$/, ''),
     apiKey: process.env.COBALT_API_KEY || undefined,
     timeoutMs: parseInt(process.env.COBALT_TIMEOUT_MS || '15000', 10),
   },

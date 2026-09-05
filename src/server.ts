@@ -28,8 +28,8 @@ app.get('/', (_req: Request, res: Response) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hax Media Downloader</title>
   <meta property="og:title" content="Hax Media Downloader">
-  <meta name="description" content="Media downloader service with yt-dlp, Cobalt, and external provider fallbacks">
-  <meta property="og:description" content="Media downloader service with yt-dlp, Cobalt, and external provider fallbacks">
+  <meta name="description" content="Production-ready media downloader service with yt-dlp, Cobalt, and external provider fallbacks">
+  <meta property="og:description" content="Production-ready media downloader service with yt-dlp, Cobalt, and external provider fallbacks">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -145,7 +145,8 @@ app.get('/', (_req: Request, res: Response) => {
       const msg = document.getElementById('msg-' + id);
       if (!info) return;
 
-      if (info.available) {
+      const isAvail = info.isAvailable !== undefined ? info.isAvailable : info.available;
+      if (isAvail) {
         badge.className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
         badge.textContent = 'available';
       } else {

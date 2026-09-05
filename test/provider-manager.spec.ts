@@ -66,6 +66,25 @@ describe('ProviderManager and Fallback Order', () => {
       /All providers failed/
     );
   });
+
+  it('calls checkHealth() on providers and populates both available and isAvailable', async () => {
+    const ytdlp = new MockProvider('yt-dlp', false);
+    const cobalt = new MockProvider('cobalt', false);
+    const external = new MockProvider('external-api', true);
+
+    const checkHealthSpy = vi.spyOn(cobalt, 'checkHealth');
+
+    const manager = new ProviderManager([ytdlp, cobalt, external]);
+    const statuses = await manager.getProvidersStatus();
+
+    expect(checkHealthSpy).toHaveBeenCalledTimes(1);
+    expect(statuses['cobalt'].available).toBe(true);
+    expect(statuses['cobalt'].isAvailable).toBe(true);
+    expect(statuses['yt-dlp'].available).toBe(true);
+    expect(statuses['yt-dlp'].isAvailable).toBe(true);
+    expect(statuses['external-api'].available).toBe(false);
+    expect(statuses['external-api'].isAvailable).toBe(false);
+  });
 });
 
 describe('SSRF Protection & URL Validation', () => {

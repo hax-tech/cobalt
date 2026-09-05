@@ -1,5 +1,6 @@
 export interface ProviderHealthStatus {
   available: boolean;
+  isAvailable?: boolean;
   statusMessage: string;
   version?: string;
 }
@@ -26,6 +27,13 @@ export abstract class BaseProvider {
    * Performs an availability health-check on the provider instance.
    */
   abstract checkHealth(): Promise<ProviderHealthStatus>;
+
+  /**
+   * Compatibility alias for checkHealth.
+   */
+  async healthCheck(): Promise<ProviderHealthStatus> {
+    return this.checkHealth();
+  }
 
   /**
    * Processes the media URL and returns download stream/redirect information.

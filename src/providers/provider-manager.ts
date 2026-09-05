@@ -43,17 +43,27 @@ export class ProviderManager {
       const provider = this.providers.get(name);
       if (provider) {
         try {
-          statuses[name] = await provider.checkHealth();
+          const health = typeof provider.checkHealth === 'function'
+            ? await provider.checkHealth()
+            : await provider.healthCheck();
+
+          statuses[name] = {
+            ...health,
+            available: health.available,
+            isAvailable: health.isAvailable ?? health.available,
+          };
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           statuses[name] = {
             available: false,
+            isAvailable: false,
             statusMessage: `Health check failed: ${msg}`,
           };
         }
       } else {
         statuses[name] = {
           available: false,
+          isAvailable: false,
           statusMessage: 'Provider not registered',
         };
       }
