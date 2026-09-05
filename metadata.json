@@ -1,0 +1,6 @@
+{
+  "name": "Hax Media Downloader",
+  "description": "Production-ready media downloader service with yt-dlp, Cobalt, and external provider fallbacks",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
