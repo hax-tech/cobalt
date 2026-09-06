@@ -1,26 +1,26 @@
-FROM node:24-alpine AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+FROM node:22-alpine AS builder
 
-FROM base AS build
 WORKDIR /app
-COPY . /app
+COPY package*.json tsconfig.json ./
+RUN npm ci
+COPY src ./src
+RUN npm run build
 
-RUN corepack enable
-RUN apk add --no-cache python3 alpine-sdk
+FROM node:22-alpine AS runner
 
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile
-
-RUN pnpm deploy --filter=@imput/cobalt-api --prod /prod/api
-
-FROM base AS api
 WORKDIR /app
+ENV NODE_ENV=production
 
-COPY --from=build --chown=node:node /prod/api /app
-COPY --from=build --chown=node:node /app/.git /app/.git
+# Install yt-dlp and ffmpeg for media processing
+RUN apk add --no-cache python3 ffmpeg curl && \
+    curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
 
-USER node
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-EXPOSE 9000
-CMD [ "node", "src/cobalt" ]
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 3000
+
+CMD ["node", "dist/server.js"]
